@@ -28,10 +28,10 @@ def run_parcel(
     dt=2 * si.s,
 ):
     products = (
-        PySDM_products.WaterMixingRatio(unit="g/kg", name="ql"),
-        PySDM_products.PeakSupersaturation(name="S max"),
-        PySDM_products.AmbientRelativeHumidity(name="RH"),
-        PySDM_products.ParcelDisplacement(name="z"),
+        PySDM_products.WaterMixingRatio(unit = "g/kg", name = "ql"),
+        PySDM_products.PeakSupersaturation(name = "S max"),
+        PySDM_products.AmbientRelativeHumidity(name = "RH"),
+        PySDM_products.ParcelDisplacement(name = "z"),
     )
 
     formulae = Formulae()
@@ -39,12 +39,13 @@ def run_parcel(
     pv0 = RH0 * formulae.saturation_vapour_pressure.pvs_Celsius(T0 - const.T0)
     q0 = const.eps * pv0 / (p0 - pv0)
 
-    env = Parcel(dt=dt, mass_of_dry_air=mass_of_dry_air, p0=p0, q0=q0, w=w, T0=T0)
+    env = Parcel(dt = dt, mass_of_dry_air = mass_of_dry_air, p0 = p0, q0 = q0,
+                 w = w, T0 = T0)
 
-    aerosol = AerosolARG(M2_sol=sol2, M2_N=N2, M2_rad=rad2)
+    aerosol = AerosolARG(M2_sol = sol2, M2_N = N2, M2_rad = rad2)
     n_sd = n_sd_per_mode * len(aerosol.modes)
 
-    builder = Builder(backend=CPU(), n_sd=n_sd)
+    builder = Builder(backend = CPU(), n_sd = n_sd)
     builder.set_environment(env)
     builder.add_dynamic(AmbientThermodynamics())
     builder.add_dynamic(Condensation())
@@ -54,7 +55,7 @@ def run_parcel(
     for i, mode in enumerate(aerosol.modes):
         kappa, spectrum = mode["kappa"]["CompressedFilmOvadnevaite"], mode["spectrum"]
         r_dry, concentration = ConstantMultiplicity(spectrum).sample(n_sd_per_mode)
-        v_dry = builder.formulae.trivia.volume(radius=r_dry)
+        v_dry = builder.formulae.trivia.volume(radius = r_dry)
         specific_concentration = concentration / builder.formulae.constants.rho_STP
         attributes["n"] = np.append(
             attributes["n"], specific_concentration * env.mass_of_dry_air
