@@ -20,12 +20,12 @@ def run_parcel(
     N2,
     rad2,
     n_sd_per_mode,
-    RH0=1.0,
-    T0=294 * si.K,
-    p0=1e5 * si.Pa,
-    n_steps=50,
-    mass_of_dry_air=1e3 * si.kg,
-    dt=2 * si.s,
+    RH0 = 1.0,                     # Relative humidity of parcel [N/A]
+    T0  = 294 * si.K,              # Temperature of parcel [K]
+    p0  = 1e5 * si.Pa,             # Pressure of parcel [Pa]
+    n_steps = 50,
+    mass_of_dry_air = 1e3 * si.kg, # Mass of dry air in parcel [kg]
+    dt = 2 * si.s,
 ):
     products = (
         PySDM_products.WaterMixingRatio(unit = "g/kg", name = "ql"),
