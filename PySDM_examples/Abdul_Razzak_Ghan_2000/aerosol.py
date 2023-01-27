@@ -7,51 +7,33 @@ from pystrict import strict
 
 @strict
 class AerosolARG(DryAerosolMixture):
-    def __init__(self,
-                 M2_sol: float = 0, # Fraction of externally mixed mode 2
-                 M2_N:   float = 100 / si.cm**3,
-                 M2_rad: float = 50 * si.nm,):
+    def __init__(self, modes: tuple):
+
+        # Required that each mode has the same compounds available
+        # (Can have mass fraction = 0.0 for compounds to exclude them)
+        names                   = list(modes[0].compounds.keys())
+        compounds               = list(modes[0].compounds.values())
+        molar_masses            = {}
+        densities               = {}
+        is_solubles             = {}
+        ionic_dissociation_phis = {}
+        for compound in compounds:
+            molar_masses[compound.name] = compound.molar_mass
+            densities[compound.name]    = compound.density
+            is_solubles[compound.name]  = compound.is_soluble
+            ionic_dissociation_phis[compound.name] = compound.ionic_dissociation_phi
+            
         super().__init__( # Initialize superclass DryAerosolMixture
-            compounds = ("(NH4)2SO4", "NaCl", "insoluble"),
-            molar_masses = {
-                "(NH4)2SO4": 132.14 * si.g / si.mole,
-                "NaCl"     : 58.44 * si.g / si.mole,
-                "insoluble": 44 * si.g / si.mole,
-            },
-            densities = {
-                "(NH4)2SO4": 1.77 * si.g / si.cm**3,
-                "NaCl"     : 2.16 * si.g / si.cm**3,
-                "insoluble": 1.77 * si.g / si.cm**3,
-            },
-            is_soluble = {"(NH4)2SO4": True,
-                          "NaCl":      True,
-                          "insoluble": False},
-            ionic_dissociation_phi = {"(NH4)2SO4": 3,
-                                      "NaCl":      2,
-                                      "insoluble": 0},
+            compounds              = names,
+            molar_masses           = molar_masses,
+            densities              = densities,
+            is_soluble             = is_solubles,
+            ionic_dissociation_phi = ionic_dissociation_phis,
         )
-        self.modes = (
-            { # Entirely (NH4)2SO4
-                "kappa": self.kappa({"(NH4)2SO4": 1.0,
-                                     "NaCl":      0.0,
-                                     "insoluble": 0.0}),
-                "spectrum": spectra.Lognormal(
-                    norm_factor = 100.0 / si.cm**3,
-                    m_mode = 50.0 * si.nm,
-                    s_geom = 2.0
-                ),
-            },
-            { # Externally mixed (NH4)2SO4, Arbitrary insoluble compound
-                "kappa": self.kappa({"(NH4)2SO4": M2_sol,
-                                     "NaCl":      0.0,
-                                     "insoluble": (1 - M2_sol)}),
-                "spectrum": spectra.Lognormal(
-                    norm_factor = M2_N,
-                    m_mode = M2_rad,
-                    s_geom = 2.0
-                ),
-            },
-        )
+
+        self.modes = list({"kappa": self.kappa(mode.mass_fractions),
+                           "spectrum": mode.spectrum} for mode in modes)
+        
 
 
 @strict

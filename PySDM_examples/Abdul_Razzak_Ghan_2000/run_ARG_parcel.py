@@ -15,17 +15,15 @@ from PySDM_examples.Abdul_Razzak_Ghan_2000.aerosol import AerosolARG
 
 
 def run_parcel(
-    w,
-    sol2,
-    N2,
-    rad2,
-    n_sd_per_mode,
-    RH0 = 1.0,                     # Relative humidity of parcel [N/A]
-    T0  = 294 * si.K,              # Temperature of parcel [K]
-    p0  = 1e5 * si.Pa,             # Pressure of parcel [Pa]
-    n_steps = 50,
-    mass_of_dry_air = 1e3 * si.kg, # Mass of dry air in parcel [kg]
-    dt = 2 * si.s,
+        w,                      # Updraft velocity of air parcel [m s^(-1)]
+        modes,                  # Aerosol modes
+        n_sd_per_mode,          # Number of superdroplets per mode [N/A]
+        RH0 = 1.0,              # Relative humidity of parcel [N/A]
+        T0  = 294 * si.K,       # Temperature of parcel [K]
+        p0  = 1e5 * si.Pa,      # Pressure of parcel [Pa]
+        n_steps = 50,           
+        mass_of_dry_air = 1e3 * si.kg, # Mass of dry air in parcel [kg]
+        dt = 2 * si.s,          # Time-step size [s^(-1)]
 ):
     products = (
         PySDM_products.WaterMixingRatio(unit = "g/kg", name = "ql"),
@@ -39,10 +37,14 @@ def run_parcel(
     pv0 = RH0 * formulae.saturation_vapour_pressure.pvs_Celsius(T0 - const.T0)
     q0 = const.eps * pv0 / (p0 - pv0)
 
-    env = Parcel(dt = dt, mass_of_dry_air = mass_of_dry_air, p0 = p0, q0 = q0,
-                 w = w, T0 = T0)
+    env = Parcel(dt = dt,
+                 mass_of_dry_air = mass_of_dry_air,
+                 p0 = p0,
+                 q0 = q0,
+                 w = w,
+                 T0 = T0)
 
-    aerosol = AerosolARG(M2_sol = sol2, M2_N = N2, M2_rad = rad2)
+    aerosol = AerosolARG(modes)
     n_sd = n_sd_per_mode * len(aerosol.modes)
 
     builder = Builder(backend = CPU(), n_sd = n_sd)
@@ -66,9 +68,9 @@ def run_parcel(
         )
 
     r_wet = equilibrate_wet_radii(
-        r_dry=builder.formulae.trivia.radius(volume=attributes["dry volume"]),
-        environment=env,
-        kappa_times_dry_volume=attributes["kappa times dry volume"],
+        r_dry = builder.formulae.trivia.radius(volume=attributes["dry volume"]),
+        environment = env,
+        kappa_times_dry_volume = attributes["kappa times dry volume"],
     )
     attributes["volume"] = builder.formulae.trivia.volume(radius=r_wet)
 
@@ -127,10 +129,10 @@ def run_parcel(
         ],
     )
     return Output(
-        profile=output,
-        attributes=output_attributes,
-        aerosol=aerosol,
-        activated_fraction_S=activated_fraction_S,
-        activated_fraction_V=activated_fraction_V,
-        error=error,
+        profile              = output,
+        attributes           = output_attributes,
+        aerosol              = aerosol,
+        activated_fraction_S = activated_fraction_S,
+        activated_fraction_V = activated_fraction_V,
+        error                = error,
     )
