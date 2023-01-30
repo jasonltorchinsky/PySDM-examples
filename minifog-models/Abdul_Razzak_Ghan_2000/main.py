@@ -9,6 +9,8 @@ from pystrict import strict
 from PySDM.physics import si
 from PySDM.initialisation import spectra
 
+from tools import print_msg
+
 import PySDM_examples.Abdul_Razzak_Ghan_2000
 sys.modules['ARG_2000'] = sys.modules['PySDM_examples.Abdul_Razzak_Ghan_2000']
 from ARG_2000.run_ARG_parcel import run_parcel
@@ -33,20 +35,18 @@ from ARG_2000.data_from_CloudMicrophysics_ARG import (
 
 def main():
 
+    print_msg('Starting execution...')
     perf_0_main = perf_counter()
-
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print('[{}]: Starting execution...'.format(current_time))
     
-    # Generate Figure 1 of Razzak00
-    # First test case: Two identical modes.
+    # EXPERIMENT: An air parcel containing two aerosol modes of
+    # 100% ammonium sulfate, rising at 0.5 [m s^(-1)]
     n_sd_per_mode = 10 # Number of super-droplets per mode.
 
-    N2 = np.linspace(100, 5000, 5) / si.cm**3 # Number concentration of mode 2.
-    AF_S = np.zeros((2, len(N2))) # Activated fraction based on crit. supersat.
-    AF_V = np.zeros((2, len(N2))) # Activated fraction based on crit. vol.
-    AFerror = np.zeros(len(N2))   # Activated fraction error (?)
+    n_trials = 5
+    N_1s = np.linspace(100, 5000, n_trials) / si.cm**3 # Number concentration of mode 1.
+    AF_S = np.zeros((2, n_trials)) # Activated fraction based on crit. supersat.
+    AF_V = np.zeros((2, n_trials)) # Activated fraction based on crit. vol.
+    AFerror = np.zeros(n_trials)   # Activated fraction error (?)
     
     w = 0.5 * si.m / si.s # Updraft velocity of the air parcel.
 
@@ -69,7 +69,7 @@ def main():
     compounds = (ammonium_sulfate, sodium_chloride, insoluble)
 
 
-    # Create Mode 0
+    # Create Mode 0 - is same for each loop iteration
     N_0     = 100.0 / si.cm**3 # Number density [cm^(-3)]
     r_0     = 50 * si.nm       # Number mode radius [nm]
     sigma_0 = 2.0              # Geometric std. dev. [N/A]
@@ -83,70 +83,65 @@ def main():
                   mass_fractions = mass_fractions_0,
                   spectrum = spectrum_0)
 
-    # Create Mode 1
-    N_1     = 100.0 / si.cm**3
+    # Info for mode 1 common for each loop iteration
     r_1     = 50 * si.nm
     sigma_1 = 2.0
     M_ammonium_sulfate = 1.0  # Mass fraction of (NH4)2SO4
     mass_fractions_1 = (M_ammonium_sulfate, 0.0, (1.0 - M_ammonium_sulfate))
-    spectrum_1 = spectra.Lognormal(norm_factor = N_1,
-                                   m_mode = r_1,
-                                   s_geom = sigma_1)
-    
-    mode_1 = Mode(compounds,
-                  mass_fractions = mass_fractions_1,
-                  spectrum = spectrum_1)
-
-    modes = (mode_0, mode_1)
     
 
-    # Run the parcel for various number densities
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    print('[{}]: Starting main loop...'.format(current_time))
-    for i, N2i in enumerate(N2):
+    # Run the parcel for various number densities of mode 1
+    print_msg('Starting main loop...')
+    for ii, N_1 in enumerate(N_1s):
         perf_0 = perf_counter()
+
+        # Finish creating mode 1 with desired number density
+        spectrum_1 = spectra.Lognormal(norm_factor = N_1,
+                                       m_mode = r_1,
+                                       s_geom = sigma_1)
+    
+        mode_1 = Mode(compounds,
+                      mass_fractions = mass_fractions_1,
+                      spectrum = spectrum_1)
+
+        modes = (mode_0, mode_1)
         
         output     = run_parcel(w, modes, n_sd_per_mode)
-        AF_S[:,i]  = output.activated_fraction_S
-        AF_V[:,i]  = output.activated_fraction_V
-        AFerror[i] = output.error[0]
+        AF_S[:,ii]  = output.activated_fraction_S
+        AF_V[:,ii]  = output.activated_fraction_V
+        AFerror[ii] = output.error[0]
 
         perf_f = perf_counter()
         perf_diff = perf_f - perf_0
-        now = datetime.now()
-        current_time = now.strftime("%H:%M:%S")
-        perf_str = ('[{}]: Run {:0>2d} of {:0>2d}: ' +
-                    'Time Elapsed - {:06.4f} [s]').format(current_time, i, len(N2),
-                                                          perf_diff)
-        print(perf_str)
+        perf_str = ('Run {:0>2d} of {:0>2d}: ' +
+                    'Time Elapsed - {:06.4f} [s]').format(ii, n_trials, perf_diff)
+        print_msg(perf_str)
 
     # Recreate Figure 1 of Razzak00
     fig, ax = plt.subplots(1, 1, sharex = True, figsize = (8, 6))
+    # Original Razzak00 starts mode indexing at 1, so our "Mode 1" is
+    # their "Mode 2", hence "N2"
     ax.plot(Fig1_N2_obs, Fig1_AF_obs, "ko", label = "ARG 2000 data")
     ax.plot(Fig1_N2_param, Fig1_AF_param, "k-", label = "ARG 2000 param")
         
     ax.plot(Fig1_N2_param_jl, Fig1_AF_param_jl_B, "k--",
             label = "CloudMicrophysics.jl param (B)")
         
-    ax.errorbar(N2 * si.cm**3, AF_S[0,:], yerr = AFerror,
+    ax.errorbar(N_1s * si.cm**3, AF_S[0,:], yerr = AFerror,
                 fmt = 'o', capsize = 4, label = "PySDM, Scrit def")
-    ax.errorbar(N2 * si.cm**3, AF_V[0,:], yerr = AFerror,
+    ax.errorbar(N_1s * si.cm**3, AF_V[0,:], yerr = AFerror,
                 fmt='x', capsize = 2, label = "PySDM, Vcrit def")
-    ax.set_ylabel('Mode 1 Activated Fraction')
+    ax.set_ylabel('Mode 0 Activated Fraction')
     ax.set_ylim([0, 1.1])
     
-    plt.xlabel('Mode 2 Aerosol Number (cm$^{-3}$)')
+    plt.xlabel('Mode 1 Aerosol Number [cm$^{-3}$]')
     plt.legend(loc = "best")
     plt.savefig('fig_1.pdf')
 
     perf_f_main = perf_counter()
     perf_diff = perf_f_main - perf_0_main
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    perf_str = ('[{}]: Total execution time - {:06.4f} [s]').format(current_time,
-                                                                   perf_diff)
-    print(perf_str)
+    perf_str = ('Total execution time - {:06.4f} [s]').format(perf_diff)
+    print_msg(perf_str)
 
 
 @strict

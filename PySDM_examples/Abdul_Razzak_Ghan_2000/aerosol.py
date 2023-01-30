@@ -33,6 +33,27 @@ class AerosolARG(DryAerosolMixture):
 
         self.modes = list({"kappa": self.kappa(mode.mass_fractions),
                            "spectrum": mode.spectrum} for mode in modes)
+
+    def __str__(self):
+
+        # Print compounds present in aerosol, their mass fractions, etc.
+        compounds_str              = str(self.compounds)
+        molar_masses_str           = str(list(self.molar_masses.values()))
+        densities_str              = str(list(self.densities.values()))
+        is_soluble_str             = str(list(self.is_soluble.values()))
+        ionic_dissociation_phi_str = str(list(self.ionic_dissociation_phi.values()))
+
+        label = ('Compounds:\n  {}\n' +
+                 'Molar Masses:\n {}\n' +
+                 'Densities:\n {}\n' +
+                 'is_soluble:\n {}\n' +
+                 'ionic_dissociation_phi:\n {}').format(compounds_str,
+                                                        molar_masses_str,
+                                                        densities_str,
+                                                        is_soluble_str,
+                                                        ionic_dissociation_phi_str)
+        
+        return label
         
 
 
