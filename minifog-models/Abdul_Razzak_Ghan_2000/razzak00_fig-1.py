@@ -14,6 +14,24 @@ sys.modules['ARG_2000'] = sys.modules['PySDM_examples.Abdul_Razzak_Ghan_2000']
 from ARG_2000.Compound import Compound
 from ARG_2000.Mode import Mode
 from ARG_2000.run_ARG_parcel import run_parcel
+from ARG_2000.data_from_ARG2000_paper import (
+    Fig1_N2_obs, Fig1_AF_obs, Fig1_N2_param, Fig1_AF_param,
+    #Fig2a_N2_obs, Fig2a_AF_obs, Fig2a_N2_param, Fig2a_AF_param,
+    #Fig2b_N2_obs, Fig2b_AF_obs, Fig2b_N2_param, Fig2b_AF_param,
+    #Fig3a_sol2_obs, Fig3a_AF_obs, Fig3a_sol2_param, Fig3a_AF_param,
+    #Fig3b_sol2_obs, Fig3b_AF_obs, Fig3b_sol2_param, Fig3b_AF_param,
+    #Fig4a_rad2_obs, Fig4a_AF_obs, Fig4a_rad2_param, Fig4a_AF_param,
+    #Fig4b_rad2_obs, Fig4b_AF_obs, Fig4b_rad2_param, Fig4b_AF_param,
+    #Fig5a_w_obs, Fig5a_AF_obs, Fig5a_w_param, Fig5a_AF_param,
+    #Fig5b_w_obs, Fig5b_AF_obs, Fig5b_w_param, Fig5b_AF_param
+)
+from ARG_2000.data_from_CloudMicrophysics_ARG import (
+    Fig1_N2_param_jl, Fig1_AF_param_jl_B,
+    #Fig2_N2_param_jl, Fig2a_AF_param_jl_B, Fig2b_AF_param_jl_B,
+    #Fig3_sol2_param_jl, Fig3a_AF_param_jl_B, Fig3b_AF_param_jl_B,
+    #Fig4_rad2_param_jl, Fig4a_AF_param_jl_B, Fig4b_AF_param_jl_B,
+    #Fig5_w_param_jl, Fig5a_AF_param_jl_B, Fig5b_AF_param_jl_B,
+)
 
 def main():
 
@@ -24,19 +42,14 @@ def main():
     # 100% ammonium sulfate, rising at 0.5 [m s^(-1)]
     n_sd_per_mode = 20 # Number of super-droplets per mode.
 
-    n_trials = 10
-    ws   = 2**np.linspace(-5.0, 5.0, n_trials) * si.m / si.s
-           # Updraft velocity of the air parcel.
+    n_trials = 5
+    N_1s = np.linspace(100, 5000, n_trials) / si.cm**3 # Number concentration of mode 1.
     AF_S = np.zeros((2, n_trials)) # Activated fraction based on crit. supersat.
     AF_V = np.zeros((2, n_trials)) # Activated fraction based on crit. vol.
     AFerror = np.zeros(n_trials)   # Activated fraction error (?)
-
-    n_steps = 100
-    ql    = np.zeros([n_steps, n_trials])
-    S_max = np.zeros([n_steps, n_trials])
-    RH    = np.zeros([n_steps, n_trials])
-    z     = np.zeros([n_steps, n_trials])
     
+    w = 0.5 * si.m / si.s # Updraft velocity of the air parcel.
+
     ammonium_sulfate = Compound(name       = '(NH4)2SO4',
                                 molar_mass = 132.14 * si.g / si.mole,
                                 density    = 1.77 * si.g / si.cm**3,
@@ -57,10 +70,10 @@ def main():
 
 
     # Create Mode 0 - is same for each loop iteration
-    N_0     = 50.0 * 100.0 / si.cm**3 # Number density [cm^(-3)]
+    N_0     = 100.0 / si.cm**3 # Number density [cm^(-3)]
     r_0     = 50 * si.nm       # Number mode radius [nm]
     sigma_0 = 2.0              # Geometric std. dev. [N/A]
-    mass_fractions_0 = (0.0, 1.0, 0.0) # Mass fractions [N/A]
+    mass_fractions_0 = (1.0, 0.0, 0.0) # Mass fractions [N/A]
                                        # * Same order as compounds
     spectrum_0 = spectra.Lognormal(norm_factor = N_0,
                                    m_mode = r_0,
@@ -70,25 +83,30 @@ def main():
                   mass_fractions = mass_fractions_0,
                   spectrum = spectrum_0)
 
-    # Code requires multiple modes, so we repeat the same mode twice here
-    # and I think it acts like a single mode?
-    modes = [mode_0, mode_0]
+    # Info for mode 1 common for each loop iteration
+    r_1     = 50 * si.nm
+    sigma_1 = 2.0
+    M_ammonium_sulfate = 1.0  # Mass fraction of (NH4)2SO4
+    mass_fractions_1 = (M_ammonium_sulfate, 0.0, (1.0 - M_ammonium_sulfate))
     
 
     # Run the parcel for various number densities of mode 1
     print_msg('Starting main loop...')
-    for ii, w in enumerate(ws):
+    for ii, N_1 in enumerate(N_1s):
         perf_0 = perf_counter()
 
-        output      = run_parcel(w, modes, n_sd_per_mode,
-                                 RH0 = 0.1, n_steps = n_steps)
-        ql[:,ii]    = output.profile['ql']
-        S_max[:,ii] = output.profile['S max']
-        RH[:,ii]    = output.profile['RH']
-        z[:,ii]     = output.profile['z']
-        print(ql[:,ii])
-        print(RH[:,ii])
-        quit()
+        # Finish creating mode 1 with desired number density
+        spectrum_1 = spectra.Lognormal(norm_factor = N_1,
+                                       m_mode = r_1,
+                                       s_geom = sigma_1)
+    
+        mode_1 = Mode(compounds,
+                      mass_fractions = mass_fractions_1,
+                      spectrum = spectrum_1)
+
+        modes = (mode_0, mode_1)
+        
+        output      = run_parcel(w, modes, n_sd_per_mode)
         AF_S[:,ii]  = output.activated_fraction_S
         AF_V[:,ii]  = output.activated_fraction_V
         AFerror[ii] = output.error[0]
@@ -101,18 +119,22 @@ def main():
 
     # Recreate Figure 1 of Razzak00
     fig, ax = plt.subplots(1, 1, sharex = True, figsize = (8, 6))
+    # Original Razzak00 starts mode indexing at 1, so our "Mode 1" is
+    # their "Mode 2", hence "N2"
+    ax.plot(Fig1_N2_obs, Fig1_AF_obs, "ko", label = "ARG 2000 data")
+    ax.plot(Fig1_N2_param, Fig1_AF_param, "k-", label = "ARG 2000 param")
         
-    ax.errorbar(ws, AF_S[0,:], yerr = AFerror,
-                fmt = 'o', capsize = 4, label = "Mode 0 (NaCl)")
-    ax.errorbar(ws, AF_S[1,:], yerr = AFerror,
-                fmt = 'x', capsize = 4, label = "Mode 1 (NaCl)")
-    
-    ax.set_xscale('log', base = 2)
-    
-    ax.set_ylabel('Activated Fraction')
+    ax.plot(Fig1_N2_param_jl, Fig1_AF_param_jl_B, "k--",
+            label = "CloudMicrophysics.jl param (B)")
+        
+    ax.errorbar(N_1s * si.cm**3, AF_S[0,:], yerr = AFerror,
+                fmt = 'o', capsize = 4, label = "PySDM, Scrit def")
+    ax.errorbar(N_1s * si.cm**3, AF_V[0,:], yerr = AFerror,
+                fmt='x', capsize = 2, label = "PySDM, Vcrit def")
+    ax.set_ylabel('Mode 0 Activated Fraction')
     ax.set_ylim([0, 1.1])
     
-    plt.xlabel('Air Parcel Vertical Velocity [$m\,s^{-1}$]')
+    plt.xlabel('Mode 1 Aerosol Number [cm$^{-3}$]')
     plt.legend(loc = "best")
     plt.savefig('fig_1.pdf')
 

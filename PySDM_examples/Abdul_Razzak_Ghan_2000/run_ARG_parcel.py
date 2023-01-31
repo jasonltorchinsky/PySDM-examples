@@ -86,7 +86,7 @@ def run_parcel(
     }
 
     for _ in range(n_steps):
-        particulator.run(steps=1)
+        particulator.run(steps = 1)
         for product in particulator.products.values():
             value = product.get()
             output[product.name].append(value[0])
